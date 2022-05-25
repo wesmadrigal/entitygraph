@@ -1,0 +1,120 @@
+#!/usr/bin/env python
+
+# python standard libraries
+import json
+import pathlib
+import traceback
+
+# third party libraries
+import networkx as nx
+import pyvis
+
+
+class EntityGraph(nx.Graph):
+    def __init__(self,
+            source
+            ):
+        self.source = source
+        self._graph_built = False
+        super(EntityGraph, self).__init__()
+
+  
+    def build_graph(self):
+        """
+Build the entity graph from our underlying source
+        """
+        entities = self.source.get_entities()
+# add all nodes to the graph if not already added
+        if not self._graph_built:
+            for ent in entities:
+                if not self.has_node(ent):
+                    self.add_node(ent)
+            for node in self.nodes():
+                db, schema, table = node.identifier.split('.')
+                if table.endswith('s'):
+# strip the s at the end of the table name (e.g. customers_id becomes customer_id)
+                    fkname1 = '{0}_id'.format(table[:-1])
+                else:
+                    fkname1 = f'{table}_id'
+                fkname2 = None
+                fkname2 = '_'.join(f'{table}_id'.split('_')[1:]) if len(f'{table}_id'.split('_'))>2 else None
+                for node2 in self.nodes():
+                    if node != node2:
+                        db2, schema2, table2 = node2.identifier.split('.')
+                        for column in node2.columns:
+                            if column == fkname1:
+                                if not self.has_edge(node, node2):
+                                    self.add_edge(node, node2, attr={
+                                        f'{node.identifier}_key' : 'id',
+                                        f'{node2.identifier}_key' : column
+                                    })
+            self._graph_built = True
+        return self
+
+
+    def string_nodes(self):
+        """
+Turns the nodes into strings for visualization packages like `pyvis`
+        """
+        Gstring = nx.Graph() #Gstring :)
+        for node in self.nodes():
+            Gstring.add_node(node.identifier)
+        for edge in self.edges():
+            Gstring.add_edge(edge[0].identifier, edge[1].identifier)
+        return Gstring
+
+    def plot_graph(self):
+        gstring = self.string_nodes()
+        nt = pyvis.network.Network('500px', '500px')
+        nt.from_nx(gstring)
+        nt.show('ent_nx.html')
+
+    def populate_domain_expertise(self):
+        """
+Iterates through the graph and encodes custom domain expertise
+        """
+        pass
+
+
+    def optimize_paths_distance_hops(start, end):
+        """
+Something like a Dijkstra's implementation for shortest path
+
+Usage: `optimize_paths_distance_hops(G, 'table1', 'table2')
+-> ['table1', 'tableX', 'table2']
+
+Parameters
+----------
+start : str node to start with
+end : str node to end with
+Returns
+---------
+paths : list of paths to take
+        """
+        nodes_to_traverse = []
+        paths = {}
+        for n in G.neighbors(start):
+            nodes_to_traverse.append( n )
+            try:
+                paths[n] = {
+                        'path' : [start, n],
+                        'paths' : []
+                        }
+            except Exception as e:
+                print("Failed on node: {0}".format(n))
+        while len(nodes_to_traverse) > 0:
+            n = nodes_to_traverse[0]
+            del nodes_to_traverse[0]
+            for n1 in G.neighbors(n):
+                if not paths.get(n1):
+                    paths[n1] = {
+                        'path' : paths[n]['path'] + [n1],
+                        'paths' : [ paths[n]['path'] + [n1] ]
+                        }
+                    nodes_to_traverse.append(n1)
+                else:
+                    paths[n1]['paths'].append(paths[n]['path'] + [n1])
+                    if len(paths[n1]['path']) >= len(paths[n]['path'] + [n1]):
+                        paths[n1]['path'] = paths[n]['path'] + [n1]
+        return paths[end]
+

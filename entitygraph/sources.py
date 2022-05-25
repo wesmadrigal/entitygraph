@@ -143,7 +143,7 @@ source the ones in the database provided for now
             logging.debug(row)
 
     
-    def get_sample(self, identifier: str, n: int = 100):
+    def get_sample(self, identifier: str, n: int = 100) -> pd.DataFrame:
         """
 Get a sample of the parameterized identifier
         """
