@@ -7,7 +7,7 @@ class BaseSource(metaclass=abc.ABCMeta):
         raise NotImplementedError('`get_connection` method must be implemented')
 
     @abc.abstractmethod
-    def list_entities(self):
+    def get_entities(self):
         raise NotImplementedError('`list_entities` method must be implemented')
 
     @abc.abstractmethod

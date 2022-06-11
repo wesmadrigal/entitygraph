@@ -10,6 +10,7 @@ import sys
 import psycopg2
 import pandas as pd
 import networkx as nx
+import boto3
 
 from base_source import BaseSource
 from entity import Entity
@@ -142,6 +143,61 @@ source the ones in the database provided for now
         for ix, row in entities.iterrows():
             logging.debug(row)
 
+
+    def get_defined_edges(self):
+        """
+Defined edges in RDBMS world are FOREIGN KEYS
+        """
+        q1 = """
+        WITH unnested_confkey AS (
+        SELECT oid, unnest(confkey) as confkey
+            FROM pg_constraint
+        ),
+        unnested_conkey AS (
+            SELECT oid, unnest(conkey) as conkey
+            FROM pg_constraint
+            )
+        select
+        c.conname                   AS constraint_name,
+        c.contype                   AS constraint_type,
+        tbl.relname                 AS constraint_table,
+        col.attname                 AS constraint_column,
+        referenced_tbl.relname      AS referenced_table,
+        referenced_field.attname    AS referenced_column,
+        pg_get_constraintdef(c.oid) AS definition
+        FROM pg_constraint c
+        LEFT JOIN unnested_conkey con ON c.oid = con.oid
+        LEFT JOIN pg_class tbl ON tbl.oid = c.conrelid
+        LEFT JOIN pg_attribute col ON (col.attrelid = tbl.oid AND col.attnum = con.conkey)
+        LEFT JOIN pg_class referenced_tbl ON c.confrelid = referenced_tbl.oid
+        LEFT JOIN unnested_confkey conf ON c.oid = conf.oid
+        LEFT JOIN pg_attribute referenced_field ON (referenced_field.attrelid = c.confrelid AND referenced_field.attnum = conf.confkey)
+        WHERE c.contype = 'f';
+        """
+        if not self._entities:
+            self.get_entities()
+
+        conn = self.get_connection()
+        fks = pd.read_sql_query(q1, conn)
+        edges_to_add = []
+        for ix, row in fks.iterrows():
+            constraint_table = row['constraint_table']
+            constraint_column = row['constraint_column']
+            referenced_table = row['referenced_table']
+            referenced_column = row['referenced_column']
+            # get the constraint table and column pertinent entities
+            constraint_entity = list(filter(lambda x:
+                    x.identifier.split('.')[-1] == constraint_table
+                    and 
+                    constraint_column in x.columns,
+                    self._entities))
+            referenced_entity = list(filter(lambda x:
+                    x.identifier.split('.')[-1] == referenced_table,
+                    self._entities))
+
+            edges_to_add.append( (constraint_entity, referenced_entity, constraint_column) )
+        return edges_to_add
+
     
     def get_sample(self, identifier: str, n: int = 100) -> pd.DataFrame:
         """
@@ -202,11 +258,11 @@ the FileSystem where the data files exist
             raise Exception(f'FileSource connection path must be a dir, got {path}')
         return
 
-    def list_entities(self):
+    def get_entities(self):
         """
 List entities within this source
         """
-        raise NotImplementedError("`list_entities` not yet implemented")
+        raise NotImplementedError("`get_entities` not yet implemented")
 
     def get_sample(self, identifier, n: int = 100):
         """
@@ -216,13 +272,18 @@ Get a sample of parameterized identifier's data
 
 
 class S3Source(BaseSource):
-    def __init__(self, bucket: str, prefix: str = ''):
+    def __init__(self, bucket: str, prefix: str = '', fmt: str = 'parquet'):
         self.bucket = bucket
         self.prefix = prefix
+        self.fmt = fmt
+        self._conn = None
+
 
     def get_connection(self):
-        raise NotImplementedError("not yet implemented")
+        if not self._conn:
+            self._conn = boto3.client('s3')
+        return self._conn
 
-    def list_entities(self):
-        raise NotImplementedError("not yet implemented")
+    def get_entities(self):
+        buckets = self._conn.list_buckets()
 

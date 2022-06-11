@@ -18,6 +18,15 @@ class EntityGraph(nx.Graph):
         self._graph_built = False
         super(EntityGraph, self).__init__()
 
+
+    def get_defined_edges(self):
+        """
+Gets predefined edges, which we don't do inference on, we just use
+These are things like, in RDBMS world, Foreign Keys
+In RDF this would be the predicate https://www.w3.org/TR/rdf-concepts/#dfn-predicate
+        """
+        edges_df = self.source.get_defined_edges()
+
   
     def build_graph(self):
         """
@@ -29,6 +38,14 @@ Build the entity graph from our underlying source
             for ent in entities:
                 if not self.has_node(ent):
                     self.add_node(ent)
+
+# start with already defined edges
+            for n1, n2, key1, key2 in self.source.get_defined_edges():
+                self.add_edge(n1, n2, attr={
+                    f'{n1.identifier}_key' : key1,
+                    f'{n2.identifier}_key' : key2
+                })
+
             for node in self.nodes():
                 db, schema, table = node.identifier.split('.')
                 if table.endswith('s'):
@@ -48,6 +65,14 @@ Build the entity graph from our underlying source
                                         f'{node.identifier}_key' : 'id',
                                         f'{node2.identifier}_key' : column
                                     })
+                                #TODO: pass 
+                                elif self.has_edge(node, node2):
+                                    edge_data = self[node][node2]
+                                    edge_data.update({
+                                        f'{node.identifier}_key' : 'id',
+                                        f'{node2.identifier}_key' : column
+                                        })
+                                    self[node][node2] = edge_data
             self._graph_built = True
         return self
 
@@ -69,12 +94,42 @@ Turns the nodes into strings for visualization packages like `pyvis`
         nt.from_nx(gstring)
         nt.show('ent_nx.html')
 
-    def populate_domain_expertise(self):
+    def include_domain_expertise(self):
         """
 Iterates through the graph and encodes custom domain expertise
         """
         pass
 
+    def infer_edge(self, n1, n2):
+        """
+Attempts to infer an edge between two nodes (connected or disconnected) in the graph
+
+This method should wrap other more specific heuristics used to infer edges between nodes
+`self.infer_edge_nlp`
+`self.infer_edge_dtypes`
+`self.infer_edge_composite`
+        """
+        self.infer_edge_nlp(n1, n2)
+        self.infer_edge_dtypes(n1, n2)
+        self.infer_edge_composite(n1, n2)
+
+    def infer_edge_nlp(self, n1, n2):
+        """
+Use NLP approaches to inferring an edge between two entities
+        """
+        pass
+
+    def infer_edge_dtypes(self, n1, n2):
+        """
+User datatypes and distributions to infer an edge between two entities
+        """
+        pass
+
+    def infer_edge_composite(self, n1, n2):
+        """
+To start we may brute force the problem of inferring edges between entities through composite attributes
+        """
+        pass
 
     def optimize_paths_distance_hops(start, end):
         """
