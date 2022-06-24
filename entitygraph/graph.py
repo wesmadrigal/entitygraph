@@ -9,6 +9,10 @@ import traceback
 import networkx as nx
 import pyvis
 
+# internal libs
+from cardinality import RelationalCardinality
+from entity import Entity
+
 
 class EntityGraph(nx.Graph):
     def __init__(self,
@@ -19,13 +23,13 @@ class EntityGraph(nx.Graph):
         super(EntityGraph, self).__init__()
 
 
-    def get_defined_edges(self):
+    def get_defined_edges(self) -> list:
         """
 Gets predefined edges, which we don't do inference on, we just use
 These are things like, in RDBMS world, Foreign Keys
 In RDF this would be the predicate https://www.w3.org/TR/rdf-concepts/#dfn-predicate
         """
-        edges_df = self.source.get_defined_edges()
+        return self.source.get_defined_edges()
 
   
     def build_graph(self):
@@ -40,10 +44,11 @@ Build the entity graph from our underlying source
                     self.add_node(ent)
 
 # start with already defined edges
-            for n1, n2, key1, key2 in self.source.get_defined_edges():
+            for n1, n2, key1 in self.get_defined_edges():
                 self.add_edge(n1, n2, attr={
                     f'{n1.identifier}_key' : key1,
-                    f'{n2.identifier}_key' : key2
+                    f'{n2.identifier}_key' : 'id',
+                    'from_schema' : True
                 })
 
             for node in self.nodes():
@@ -63,16 +68,18 @@ Build the entity graph from our underlying source
                                 if not self.has_edge(node, node2):
                                     self.add_edge(node, node2, attr={
                                         f'{node.identifier}_key' : 'id',
-                                        f'{node2.identifier}_key' : column
+                                        f'{node2.identifier}_key' : column,
+                                        'from_schema' : False
                                     })
-                                #TODO: pass 
+                                # already has an edge
                                 elif self.has_edge(node, node2):
                                     edge_data = self[node][node2]
                                     edge_data.update({
                                         f'{node.identifier}_key' : 'id',
-                                        f'{node2.identifier}_key' : column
+                                        f'{node2.identifier}_key' : column,
+                                        'from_schema' : False
                                         })
-                                    self[node][node2] = edge_data
+                                    self.add_edge(node, node2, attr=edge_data)
             self._graph_built = True
         return self
 
@@ -81,7 +88,7 @@ Build the entity graph from our underlying source
         """
 Turns the nodes into strings for visualization packages like `pyvis`
         """
-        Gstring = nx.Graph() #Gstring :)
+        Gstring = nx.Graph()
         for node in self.nodes():
             Gstring.add_node(node.identifier)
         for edge in self.edges():
@@ -130,6 +137,19 @@ User datatypes and distributions to infer an edge between two entities
 To start we may brute force the problem of inferring edges between entities through composite attributes
         """
         pass
+
+    def infer_cardinality(
+            self, 
+            n1: Entity, 
+            n2: Entity) -> RelationalCardinality:
+        """
+Attempt to infer the cardinality between two nodes
+        """
+        # which keys are in the edge to use here?
+        #n1_samp = n1.get_sample()
+        #n2_samp = n2.get_sample()
+        pass
+
 
     def optimize_paths_distance_hops(start, end):
         """

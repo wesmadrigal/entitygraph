@@ -13,3 +13,7 @@ class BaseSource(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def build_entity_graph(self):
         raise NotImplementedError('`build_entity_graph` must be implemented')
+
+    @abc.abstractmethod
+    def get_defined_edges(self):
+        raise NotImplementedError('`get_defined_edges` must be implemented')

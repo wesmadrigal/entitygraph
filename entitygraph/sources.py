@@ -144,7 +144,7 @@ source the ones in the database provided for now
             logging.debug(row)
 
 
-    def get_defined_edges(self):
+    def get_defined_edges(self) -> list:
         """
 Defined edges in RDBMS world are FOREIGN KEYS
         """
@@ -181,21 +181,24 @@ Defined edges in RDBMS world are FOREIGN KEYS
         fks = pd.read_sql_query(q1, conn)
         edges_to_add = []
         for ix, row in fks.iterrows():
-            constraint_table = row['constraint_table']
-            constraint_column = row['constraint_column']
-            referenced_table = row['referenced_table']
-            referenced_column = row['referenced_column']
-            # get the constraint table and column pertinent entities
-            constraint_entity = list(filter(lambda x:
+            try:
+                constraint_table = row['constraint_table']
+                constraint_column = row['constraint_column']
+                referenced_table = row['referenced_table']
+                referenced_column = row['referenced_column']
+                # get the constraint table and column pertinent entities
+                constraint_entity = list(filter(lambda x:
                     x.identifier.split('.')[-1] == constraint_table
                     and 
                     constraint_column in x.columns,
-                    self._entities))
-            referenced_entity = list(filter(lambda x:
+                    self._entities))[0]
+                referenced_entity = list(filter(lambda x:
                     x.identifier.split('.')[-1] == referenced_table,
-                    self._entities))
+                    self._entities))[0]
 
-            edges_to_add.append( (constraint_entity, referenced_entity, constraint_column) )
+                edges_to_add.append( (constraint_entity, referenced_entity, constraint_column) )
+            except Exception as e:
+                continue
         return edges_to_add
 
     
@@ -286,4 +289,5 @@ class S3Source(BaseSource):
 
     def get_entities(self):
         buckets = self._conn.list_buckets()
+
 
