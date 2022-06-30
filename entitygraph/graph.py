@@ -10,8 +10,8 @@ import networkx as nx
 import pyvis
 
 # internal libs
-from cardinality import RelationalCardinality
-from entity import Entity
+from entitygraph.cardinality import RelationalCardinality
+from entitygraph.entity import Entity
 
 
 class EntityGraph(nx.Graph):

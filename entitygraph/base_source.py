@@ -17,3 +17,7 @@ class BaseSource(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def get_defined_edges(self):
         raise NotImplementedError('`get_defined_edges` must be implemented')
+
+    @abc.abstractmethod
+    def get_sample(self, n):
+        raise NotImplementedError('`get_sample` must be implemented')

@@ -12,8 +12,8 @@ import pandas as pd
 import networkx as nx
 import boto3
 
-from base_source import BaseSource
-from entity import Entity
+from entitygraph.base_source import BaseSource
+from entitygraph.entity import Entity
 
 import logging
 import sys

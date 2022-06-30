@@ -19,7 +19,7 @@ visually and programmatically.
 
 ## Usage
 ```
-from sources import PostgresSource
+from entitygraph.sources import PostgresSource
 source = PostgresSource(
     host=os.getenv('MY_HOST'),
     user=os.getenv('MY_USER'),
@@ -30,7 +30,7 @@ source = PostgresSource(
     schemas=['SCHEMA1', 'SCHEMA2']
 )
 
-import graph
+import entitygraph.graph
 
 g = graph.EntityGraph(source)
 g.build_graph()
