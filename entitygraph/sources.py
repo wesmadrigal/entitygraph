@@ -14,6 +14,7 @@ import pandas as pd
 import networkx as nx
 import boto3
 import pyarrow
+from pyarrow import dataset as ds
 
 
 from entitygraph.base_source import BaseSource
@@ -204,11 +205,15 @@ Defined edges in RDBMS world are FOREIGN KEYS
         return edges_to_add
 
     
-    def get_sample(self, identifier: str, n: int = 100) -> pd.DataFrame:
+    def get_sample(self,
+            entity : Entity,
+            n : int = 100
+            ) -> pd.DataFrame:
         """
 Get a sample of the parameterized identifier
         """
         con = self.get_connection()
+        identifier = entity.identifier
         df = pd.read_sql_query(f"""
             SELECT * FROM {identifier}
             LIMIT {n}
@@ -341,7 +346,19 @@ List entities within this source
                     e for e in filtered_entities
                     if not e.is_file
                 ]
-            self._entities = filtered_entities
+
+            entity_objects = []
+            for obj in filtered_entities:
+                if obj.path.startswith(self.file_provider.value):
+                    identifier = obj.path.split(self.file_provider.value)[1]
+                else:
+                    identifier = obj.path
+                ent = Entity(
+                        source=self,
+                        identifier=identifier
+                        )
+                entity_objects.append(ent)
+            self._entities = entity_objects
         return self._entities
 
 
@@ -360,9 +377,18 @@ or encoded from user input
         pass
 
 
-    def get_sample(self, identifier, n: int = 100):
+    def get_sample(self,
+            entity : Entity,
+            n : int = 100
+            ) -> pd.DataFrame:
         """
 Get a sample of parameterized identifier's data
         """
-        raise NotImplementedError("`get_sample` not yet implemented")
-
+        entity_dataset = ds.dataset(source=entity.identifier, filesystem=efs._fs)
+        # grab the first batch of data for the sample
+        databatch = None
+        for batch in entity_dataset.to_batches():
+            databatch = batch
+            break
+        samp = databatch.slice(offset=0, length=n).to_pandas()
+        return samp
