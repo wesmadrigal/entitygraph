@@ -8,6 +8,7 @@ import os
 import re
 import sys
 import typing
+import logging
 
 import psycopg2
 import pandas as pd
@@ -15,6 +16,7 @@ import networkx as nx
 import boto3
 import pyarrow
 from pyarrow import dataset as ds
+from pyarrow import fs
 
 
 from entitygraph.base_source import BaseSource
@@ -320,10 +322,10 @@ List entities within this source
         """
         if not self._entities:
             if not self._fs or not self._relpath:
-                fs, path = pyarrow.fs.FileSystem.from_uri(self.get_source_path())
-                self._fs = fs
+                this_fs, path = fs.FileSystem.from_uri(self.get_source_path())
+                self._fs = this_fs
                 self._relpath = path
-            raw_entities = self._fs.get_file_info(pyarrow.fs.FileSelector(self._relpath, recursive=True))
+            raw_entities = self._fs.get_file_info(fs.FileSelector(self._relpath, recursive=True))
     # filter if we have a regex pattern
             if self.regex_filter and isinstance(self.regex_filter, re.Pattern):
                 raw_entities = [
@@ -349,8 +351,8 @@ List entities within this source
 
             entity_objects = []
             for obj in filtered_entities:
-                if obj.path.startswith(self.file_provider.value):
-                    identifier = obj.path.split(self.file_provider.value)[1]
+                if obj.path.startswith(self.provider.value):
+                    identifier = obj.path.split(self.provider.value)[1]
                 else:
                     identifier = obj.path
                 ent = Entity(

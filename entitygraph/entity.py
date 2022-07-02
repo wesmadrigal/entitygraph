@@ -10,8 +10,8 @@ class Entity:
     def __init__(self,
             source,
             identifier : str,
-            columns : typing.List[str],
-            column_type_map : dict,
+            columns : typing.Optional[typing.List[str]] = [],
+            column_type_map : typing.Optional[dict] = {},
             column_df = None
             ):
         """
