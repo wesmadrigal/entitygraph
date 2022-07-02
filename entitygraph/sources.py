@@ -5,18 +5,20 @@ Data sources for an entitygraph to infer from
 """
 
 import os
+import re
 import sys
+import typing
 
 import psycopg2
 import pandas as pd
 import networkx as nx
 import boto3
+import pyarrow
+
 
 from entitygraph.base_source import BaseSource
 from entitygraph.entity import Entity
-
-import logging
-import sys
+from entitygraph.enums import FileProvider, StorageFormat
 
 
 root = logging.getLogger()
@@ -243,12 +245,57 @@ Get a sample of the parameterized identifier
         return self.graph 
 
 
+
 class FileSource(BaseSource):
     def __init__(self,
             path_root: str,
-            storage_type: str = 'parquet'):
+            provider : FileProvider = FileProvider.local,
+            storage_format: StorageFormat = StorageFormat.parquet,
+            prefix : typing.Optional[str] = None,
+            regex_filter : typing.Optional[str] = None,
+            entities_are_partitioned : bool = False
+        ):
+        """
+We are using the pyarrow.fs.FileSystem so for more information
+please refer to the pyarrow docs: https://arrow.apache.org/docs/python/generated/pyarrow.fs.FileSystem.html
+        """
+        self.provider = provider
+# in the case of an object store this would be a bucket
+# s3: bucket, blob: bucket, GCS: bucket
+# in the case of local filesystem this would be
+# the root directory to search from
         self.path_root = path_root
-        self.storage_type = storage_type
+        if sum([1 if getattr(FileProvider, x).value in self.path_root else 0
+               for x in [a for a in dir(FileProvider) if not a.startswith('_')]
+               ]):
+            raise Exception(f"Path root cannot have provider prefix {self.provider.value}")
+
+        self.storage_format = storage_format
+# prefix is not necessary if the path root is the
+        self.prefix = prefix
+        self.regex_filter = re.compile(regex_filter) if isinstance(regex_filter, str) else regex_filter
+# entities are stored in partitions
+        self.entities_are_partitioned = entities_are_partitioned
+
+        self._fs = None
+        self._source_path = None
+# pyarrow's relative path from a call to `pyarrow.fs.FileSystem.from_uri`
+        self._relpath = None
+
+        self._entities = []
+
+
+    def get_source_path(self) -> str:
+        """
+Builds the full path of the source
+        """
+        if not self._source_path:
+            source_path = self.provider.value + self.path_root
+            if self.prefix:
+                source_path = source_path + '/' + self.prefix
+            self._source_path = source_path
+        return self._source_path
+
 
     def get_connection(self, path: str):
         """
@@ -261,33 +308,61 @@ the FileSystem where the data files exist
             raise Exception(f'FileSource connection path must be a dir, got {path}')
         return
 
+
     def get_entities(self):
         """
 List entities within this source
         """
-        raise NotImplementedError("`get_entities` not yet implemented")
+        if not self._entities:
+            if not self._fs or not self._relpath:
+                fs, path = pyarrow.fs.FileSystem.from_uri(self.get_source_path())
+                self._fs = fs
+                self._relpath = path
+            raw_entities = self._fs.get_file_info(pyarrow.fs.FileSelector(self._relpath, recursive=True))
+    # filter if we have a regex pattern
+            if self.regex_filter and isinstance(self.regex_filter, re.Pattern):
+                raw_entities = [
+                    e for e in raw_entities
+                    if not len(re.findall(self.regex_filter, e.path))
+                ]
+    # filter entities of the pertinent storage format
+            filtered_entities = [
+                e for e in raw_entities
+                if e.path.endswith(self.storage_format.value)
+            ]
+
+    # check if the entities are stored in directories
+    # an example of this is how Spark and Dask partition
+    # files:
+    # table entity_a would be stored as:
+    # entity_a/part1.parquet, entity_a/part2.parquet, etc.
+            if self.entities_are_partitioned:
+                filtered_entities = [
+                    e for e in filtered_entities
+                    if not e.is_file
+                ]
+            self._entities = filtered_entities
+        return self._entities
+
+
+    def build_entity_graph(self):
+        """
+Interface for building the entity graph for this source
+        """
+        pass
+
+
+    def get_defined_edges(self):
+        """
+Predefined edges that are either available from schema
+or encoded from user input
+        """
+        pass
+
 
     def get_sample(self, identifier, n: int = 100):
         """
 Get a sample of parameterized identifier's data
         """
         raise NotImplementedError("`get_sample` not yet implemented")
-
-
-class S3Source(BaseSource):
-    def __init__(self, bucket: str, prefix: str = '', fmt: str = 'parquet'):
-        self.bucket = bucket
-        self.prefix = prefix
-        self.fmt = fmt
-        self._conn = None
-
-
-    def get_connection(self):
-        if not self._conn:
-            self._conn = boto3.client('s3')
-        return self._conn
-
-    def get_entities(self):
-        buckets = self._conn.list_buckets()
-
 
