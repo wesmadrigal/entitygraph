@@ -120,8 +120,8 @@ we apply this algorithm
                             try:
                                 if '_'.join(cname.split('_')[:-1]) in n2.identifier:
                                     self.add_edge(n1, n2,attr={
-                                        f'{node.identifier}_key' : 'id',
-                                        f'{node2.identifier}_key' : column,
+                                        f'{n1.identifier}_key' : 'id',
+                                        f'{n2.identifier}_key' : column,
                                         'from_schema' : False 
                                         })
                             except Exception as e:
@@ -158,7 +158,10 @@ Turns the nodes into strings for visualization packages like `pyvis`
             Gstring.add_edge(edge[0].identifier, edge[1].identifier)
         return Gstring
 
-    def plot_graph(self):
+    def plot_graph(self, fname : str = 'entity_graph.html'):
+"""
+        Plot an entity graph with `pyvis`
+"""
         gstring = self.string_nodes()
         nt = pyvis.network.Network('500px', '500px')
         nt.from_nx(gstring)
