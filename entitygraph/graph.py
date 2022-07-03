@@ -12,6 +12,7 @@ import pyvis
 # internal libs
 from entitygraph.cardinality import RelationalCardinality
 from entitygraph.entity import Entity
+from entitygraph.sources import PostgresSource, FileSource
 
 
 class EntityGraph(nx.Graph):
@@ -31,10 +32,16 @@ In RDF this would be the predicate https://www.w3.org/TR/rdf-concepts/#dfn-predi
         """
         return self.source.get_defined_edges()
 
-  
-    def build_graph(self):
+
+    def build_graph_relational(self):
         """
-Build the entity graph from our underlying source
+Build graph implementation for relational tables
+The assumption for schema is:
+    database, schema, table
+
+With a database, schema, and table structure we can generate
+the entity identifiers with those metadata and apply some
+additional edge inference heuristics to build the `EntityGraph`
         """
         entities = self.source.get_entities()
 # add all nodes to the graph if not already added
@@ -81,8 +88,64 @@ Build the entity graph from our underlying source
                                         })
                                     self.add_edge(node, node2, attr=edge_data)
             self._graph_built = True
-        return self
+        pass
 
+    def build_graph_filesystem(self):
+        """
+Build graph implementation for filesystem (local, s3, blob, gcfs)
+The assumption for schema is:
+
+    root path, relative path, filename, and storage format
+
+With these parts parameterized in the dependency `Source` instance
+we apply this algorithm
+        """
+        if not self._graph_built:
+            entities = self.source.get_entities()
+            if not self._graph_built:
+                for ent in entities:
+                    if not self.has_node(ent):
+                        self.add_node(ent)
+            # this is a weak heuristic tries to find 
+            # columns referencing a foreign table from
+            # the assumption that a table being referenced
+            # in a foreign table will take the name:
+            # `table_name` -> `table_name_id`
+            for n1 in self.nodes():
+                for n2 in self.nodes():
+                    if n1 == n2:
+                        continue
+                    else:
+                        for cname in n1.columns:
+                            try:
+                                if '_'.join(cname.split('_')[:-1]) in n2.identifier:
+                                    self.add_edge(n1, n2,attr={
+                                        f'{node.identifier}_key' : 'id',
+                                        f'{node2.identifier}_key' : column,
+                                        'from_schema' : False 
+                                        })
+                            except Exception as e:
+                                pass
+            self._graph_built = True
+        pass
+
+
+    def build_graph_warehouse(self):
+        pass
+
+    def build_graph_custom(self):
+        pass
+  
+    def build_graph(self):
+        """
+Build the entity graph from our underlying source
+        """
+        if isinstance(self.source, FileSource):
+            self.build_graph_filesystem()
+        elif isinstance(self.source, PostgresSource):
+            self.build_graph_relational()
+        else:
+            self.build_graph_custom()
 
     def string_nodes(self):
         """

@@ -224,7 +224,7 @@ Get a sample of the parameterized identifier
 
     def build_entity_graph(self) -> nx.Graph:
         entities = self.get_entities()
-# add all nodes to the graph if not already added
+        # add all nodes to the graph if not already added
         if not self._graph_built:
             for ent in entities:
                 if not self.graph.has_node(ent):
@@ -232,7 +232,7 @@ Get a sample of the parameterized identifier
             for node in self.graph.nodes():
                 db, schema, table = node.identifier.split('.')
                 if table.endswith('s'):
-# strip the s at the end of the table name (e.g. customers_id becomes customer_id)
+                    # strip the s at the end of the table name (e.g. customers_id becomes customer_id)
                     fkname1 = '{0}_id'.format(table[:-1])
                 else:
                     fkname1 = f'{table}_id'
@@ -267,10 +267,10 @@ We are using the pyarrow.fs.FileSystem so for more information
 please refer to the pyarrow docs: https://arrow.apache.org/docs/python/generated/pyarrow.fs.FileSystem.html
         """
         self.provider = provider
-# in the case of an object store this would be a bucket
-# s3: bucket, blob: bucket, GCS: bucket
-# in the case of local filesystem this would be
-# the root directory to search from
+        # in the case of an object store this would be a bucket
+        # s3: bucket, blob: bucket, GCS: bucket
+        # in the case of local filesystem this would be
+        # the root directory to search from
         self.path_root = path_root
         if sum([1 if getattr(FileProvider, x).value in self.path_root else 0
                for x in [a for a in dir(FileProvider) if not a.startswith('_')]
@@ -278,15 +278,15 @@ please refer to the pyarrow docs: https://arrow.apache.org/docs/python/generated
             raise Exception(f"Path root cannot have provider prefix {self.provider.value}")
 
         self.storage_format = storage_format
-# prefix is not necessary if the path root is the
+        # prefix is not necessary if the path root is the
         self.prefix = prefix
         self.regex_filter = re.compile(regex_filter) if isinstance(regex_filter, str) else regex_filter
-# entities are stored in partitions
+        # entities are stored in partitions
         self.entities_are_partitioned = entities_are_partitioned
 
         self._fs = None
         self._source_path = None
-# pyarrow's relative path from a call to `pyarrow.fs.FileSystem.from_uri`
+        # pyarrow's relative path from a call to `pyarrow.fs.FileSystem.from_uri`
         self._relpath = None
 
         self._entities = []
@@ -326,23 +326,23 @@ List entities within this source
                 self._fs = this_fs
                 self._relpath = path
             raw_entities = self._fs.get_file_info(fs.FileSelector(self._relpath, recursive=True))
-    # filter if we have a regex pattern
+            # filter if we have a regex pattern
             if self.regex_filter and isinstance(self.regex_filter, re.Pattern):
                 raw_entities = [
                     e for e in raw_entities
                     if not len(re.findall(self.regex_filter, e.path))
                 ]
-    # filter entities of the pertinent storage format
+            # filter entities of the pertinent storage format
             filtered_entities = [
                 e for e in raw_entities
                 if e.path.endswith(self.storage_format.value)
             ]
 
-    # check if the entities are stored in directories
-    # an example of this is how Spark and Dask partition
-    # files:
-    # table entity_a would be stored as:
-    # entity_a/part1.parquet, entity_a/part2.parquet, etc.
+            # check if the entities are stored in directories
+            # an example of this is how Spark and Dask partition
+            # files:
+            # table entity_a would be stored as:
+            # entity_a/part1.parquet, entity_a/part2.parquet, etc.
             if self.entities_are_partitioned:
                 filtered_entities = [
                     e for e in filtered_entities
@@ -359,6 +359,10 @@ List entities within this source
                         source=self,
                         identifier=identifier
                         )
+                # in order to get columns
+                # we need a sample of data
+                ent_samp = self.get_sample(ent, n=100)
+                ent.columns = ent_samp.columns
                 entity_objects.append(ent)
             self._entities = entity_objects
         return self._entities
@@ -386,7 +390,7 @@ or encoded from user input
         """
 Get a sample of parameterized identifier's data
         """
-        entity_dataset = ds.dataset(source=entity.identifier, filesystem=efs._fs)
+        entity_dataset = ds.dataset(source=entity.identifier, filesystem=self._fs)
         # grab the first batch of data for the sample
         databatch = None
         for batch in entity_dataset.to_batches():
