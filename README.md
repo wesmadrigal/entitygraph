@@ -40,3 +40,10 @@ len(g)
 len(g.edges)
 2450
 ```
+
+
+## Future work
+* More sources
+* closer integration with compute
+* substituting `networkx` for Knowledge graphs (probably `kglab` https://github.com/derwenai/kglab)
+* consolidate data types, most likely by leveraging good Open source work out of `pyarrow` https://arrow.apache.org/docs/python/api/datatypes.html
