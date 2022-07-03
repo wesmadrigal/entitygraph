@@ -40,3 +40,9 @@ len(g)
 len(g.edges)
 2450
 ```
+
+
+## Future work
+* More sources
+* closer integration with compute
+* substituting `networkx` for Knowledge graphs (probably `kglab`)
