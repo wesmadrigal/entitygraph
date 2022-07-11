@@ -158,12 +158,16 @@ Turns the nodes into strings for visualization packages like `pyvis`
             Gstring.add_edge(edge[0].identifier, edge[1].identifier)
         return Gstring
 
-    def plot_graph(self, fname : str = 'entity_graph.html'):
+    def plot_graph(self, fname : str = 'entity_graph.html', w='500px', h='500px'):
         """
 Plot an entity graph with `pyvis`
+
+fname: str of path to file name
+w : str of width default '500px'
+h : str of height default '500px'
         """
         gstring = self.string_nodes()
-        nt = pyvis.network.Network('500px', '500px')
+        nt = pyvis.network.Network(w, h)
         nt.from_nx(gstring)
         nt.show(fname)
 
