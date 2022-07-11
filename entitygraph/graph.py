@@ -44,13 +44,13 @@ the entity identifiers with those metadata and apply some
 additional edge inference heuristics to build the `EntityGraph`
         """
         entities = self.source.get_entities()
-# add all nodes to the graph if not already added
+        # add all nodes to the graph if not already added
         if not self._graph_built:
             for ent in entities:
                 if not self.has_node(ent):
                     self.add_node(ent)
 
-# start with already defined edges
+            # start with already defined edges
             for n1, n2, key1 in self.get_defined_edges():
                 self.add_edge(n1, n2, attr={
                     f'{n1.identifier}_key' : key1,
@@ -61,7 +61,7 @@ additional edge inference heuristics to build the `EntityGraph`
             for node in self.nodes():
                 db, schema, table = node.identifier.split('.')
                 if table.endswith('s'):
-# strip the s at the end of the table name (e.g. customers_id becomes customer_id)
+                    # strip the s at the end of the table name (e.g. customers_id becomes customer_id)
                     fkname1 = '{0}_id'.format(table[:-1])
                 else:
                     fkname1 = f'{table}_id'
@@ -159,13 +159,13 @@ Turns the nodes into strings for visualization packages like `pyvis`
         return Gstring
 
     def plot_graph(self, fname : str = 'entity_graph.html'):
-"""
-        Plot an entity graph with `pyvis`
-"""
+        """
+Plot an entity graph with `pyvis`
+        """
         gstring = self.string_nodes()
         nt = pyvis.network.Network('500px', '500px')
         nt.from_nx(gstring)
-        nt.show('ent_nx.html')
+        nt.show(fname)
 
     def include_domain_expertise(self):
         """

@@ -124,6 +124,9 @@ source the ones in the database provided for now
             # postgres specific
             for ix, row in self._tables_and_columns_df.groupby(
                     ['table_catalog', 'table_schema', 'table_name']).agg({'column_name':'count'}).reset_index().iterrows():
+                # filter out rows that aren't relevant and belong to `pg_catalog` and `information_schema`
+                if row['table_schema'] in ['information_schema', 'pg_catalog']:
+                    continue
                 these_cols = self._tables_and_columns_df[
                         (self._tables_and_columns_df['table_catalog']==row['table_catalog'])
                         &
